@@ -42,6 +42,7 @@ public sealed class MainForm : Form
     private Label _lblAutostart = null!;
     private Button _btnAutostartOn = null!;
     private Button _btnAutostartOff = null!;
+    private Button _btnAutostartRepair = null!;
 
     private Label _lblAgentStatus = null!;
     private Button _btnAgentStart = null!;
@@ -366,7 +367,7 @@ public sealed class MainForm : Form
 
     private GroupBox BuildAutostartGroup()
     {
-        var gb = NewGroup("Inicio automático con Windows");
+        var gb = NewGroup("Inicio automatico con Windows");
         var t = NewTable(2);
 
         _lblAutostart = new Label { AutoSize = true, Anchor = AnchorStyles.Left };
@@ -374,10 +375,12 @@ public sealed class MainForm : Form
         t.SetColumnSpan(_lblAutostart, 2);
 
         var flow = new FlowLayoutPanel { AutoSize = true, FlowDirection = FlowDirection.LeftToRight };
-        _btnAutostartOn  = new Button { Text = "Activar autostart",    AutoSize = true, Padding = new Padding(8, 4, 8, 4) };
-        _btnAutostartOff = new Button { Text = "Desactivar autostart", AutoSize = true, Padding = new Padding(8, 4, 8, 4) };
+        _btnAutostartOn     = new Button { Text = "Activar autostart",                  AutoSize = true, Padding = new Padding(8, 4, 8, 4) };
+        _btnAutostartOff    = new Button { Text = "Desactivar autostart",               AutoSize = true, Padding = new Padding(8, 4, 8, 4) };
+        _btnAutostartRepair = new Button { Text = "Reparar inicio automatico (admin)",  AutoSize = true, Padding = new Padding(8, 4, 8, 4) };
         flow.Controls.Add(_btnAutostartOn);
         flow.Controls.Add(_btnAutostartOff);
+        flow.Controls.Add(_btnAutostartRepair);
         t.Controls.Add(flow, 0, 1);
         t.SetColumnSpan(flow, 2);
 
@@ -449,8 +452,9 @@ public sealed class MainForm : Form
         _btnOpenStatus.Click  += (_, _) => OnOpenStatus();
         _btnCheckUpdate.Click += async (_, _) => await OnUpdateClickAsync();
 
-        _btnAutostartOn.Click  += (_, _) => OnAutostartOn();
-        _btnAutostartOff.Click += (_, _) => { AutostartCli.Uninstall(); RefreshAutostartLabel(); _statusLabel.Text = "Autostart desactivado."; };
+        _btnAutostartOn.Click     += async (_, _) => await OnAutostartOnAsync();
+        _btnAutostartOff.Click    += async (_, _) => { await Task.Run(() => AutostartCli.Uninstall()); RefreshAutostartLabel(); _statusLabel.Text = "Autostart desactivado."; };
+        _btnAutostartRepair.Click += async (_, _) => await OnAutostartRepairAsync();
 
         _btnAgentStart.Click += async (_, _) => { try { await _runner.StartAsync(); }
             catch (Exception ex) { Error("Fallo al iniciar agente: " + ex.Message); } };
@@ -633,38 +637,88 @@ public sealed class MainForm : Form
 
     private void RefreshAutostartLabel()
     {
-        var on = AutostartCli.IsInstalled();
-        _lblAutostart.Text = on ? "Estado: ACTIVO" : "Estado: INACTIVO";
+        var hkcu = AutostartCli.IsHkcuInstalled();
+        var task = AutostartCli.IsElevatedTaskInstalled();
+
+        if (task && hkcu)
+            _lblAutostart.Text = "Estado: ACTIVO (admin + HKCU)";
+        else if (task)
+            _lblAutostart.Text = "Estado: ACTIVO (admin)";
+        else if (hkcu)
+            _lblAutostart.Text = "Estado: ACTIVO (HKCU)";
+        else
+            _lblAutostart.Text = "Estado: INACTIVO";
+
+        var on = task || hkcu;
         _lblAutostart.ForeColor = on ? Color.SeaGreen : Color.DimGray;
-        _btnAutostartOn.Enabled  = !on;
-        _btnAutostartOff.Enabled = on;
+        _btnAutostartOn.Enabled     = !on;
+        _btnAutostartOff.Enabled    = on;
+        _btnAutostartRepair.Enabled = true;
     }
 
-    private void OnAutostartOn()
+    private async Task OnAutostartOnAsync()
     {
         var settings = _settings.Load();
-        if (!string.IsNullOrWhiteSpace(settings?.Host) && settings.Host is not "127.0.0.1" and not "localhost")
+        var host = string.IsNullOrWhiteSpace(settings?.Host) ? "127.0.0.1" : settings.Host.Trim();
+
+        if (host is not "127.0.0.1" and not "localhost")
         {
-            var acl = AutostartCli.EnsureUrlAcl(settings);
-            if (!acl.Ok)
+            var msg = $"El host esta configurado como '{host}'. Para que el agente inicie solo al arrancar Windows " +
+                      "se necesita instalar una tarea programada con permisos de administrador.\n\n" +
+                      "¿Reparar inicio automatico con privilegios de administrador ahora?";
+            if (MessageBox.Show(this, msg, "Permiso de administrador necesario",
+                    MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.Yes)
             {
-                var msg = $"El host está configurado como '{settings.Host}', lo que requiere un permiso de red (URL ACL) para que el agente escuche al arrancar." +
-                          $"\n\n{acl.Message}\n\n" +
-                          $"Para solucionarlo, ejecuta UNA vez como administrador:\n" +
-                          $"netsh http add urlacl url={acl.Url} user=\"{acl.User}\"\n\n" +
-                          "¿Instalar el autostart de todas formas?";
-                if (MessageBox.Show(this, msg, "Permiso de red necesario",
-                        MessageBoxButtons.YesNo, MessageBoxIcon.Warning) == DialogResult.No)
-                {
-                    _statusLabel.Text = "Autostart no instalado: falta permiso de red.";
-                    return;
-                }
+                await OnAutostartRepairAsync();
             }
+            return;
         }
 
         AutostartCli.Install();
         RefreshAutostartLabel();
-        _statusLabel.Text = "Autostart activado.";
+        _statusLabel.Text = "Autostart activado (HKCU).";
+    }
+
+    private async Task OnAutostartRepairAsync()
+    {
+        var settings = _settings.Load();
+        if (settings is null)
+        {
+            Error("Guarda la configuracion antes de reparar el inicio automatico.");
+            return;
+        }
+
+        try
+        {
+            var exePath = Environment.ProcessPath
+                ?? Process.GetCurrentProcess().MainModule?.FileName
+                ?? throw new InvalidOperationException("No se pudo determinar la ruta del .exe");
+
+            var psi = new ProcessStartInfo
+            {
+                FileName = exePath,
+                Arguments = "--install-autostart-elevated",
+                Verb = "runas",
+                UseShellExecute = true,
+            };
+
+            _statusLabel.Text = "Esperando permiso de administrador...";
+            using var proc = Process.Start(psi);
+            if (proc is null)
+            {
+                _statusLabel.Text = "No se pudo iniciar el instalador elevado (UAC cancelado?).";
+                return;
+            }
+            await proc.WaitForExitAsync();
+            RefreshAutostartLabel();
+            _statusLabel.Text = proc.ExitCode == 0
+                ? "Inicio automatico reparado con permisos de administrador."
+                : "El reparador termino con errores. Abre una consola como admin y ejecuta --install-autostart-elevated.";
+        }
+        catch (Exception ex)
+        {
+            Error("Error al reparar autostart: " + ex.Message);
+        }
     }
 
     private void SetAgentRunningUi(bool running)

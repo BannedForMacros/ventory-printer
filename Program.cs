@@ -25,6 +25,7 @@ public static class Program
         var mode = args.FirstOrDefault();
         if (mode is "--service" or "--test-print" or "--test-print-shift"
             or "--install-autostart" or "--uninstall-autostart" or "--autostart-status"
+            or "--install-autostart-elevated" or "--uninstall-autostart-elevated"
             or "--help" or "-h" or "/?")
         {
             // WinExe no abre consola propia; nos enganchamos a la del padre
@@ -41,6 +42,8 @@ public static class Program
             case "--install-autostart":    return AutostartCli.Install();
             case "--uninstall-autostart":  return AutostartCli.Uninstall();
             case "--autostart-status":     return AutostartCli.Status();
+            case "--install-autostart-elevated":   return ShowElevatedResult(AutostartCli.InstallElevated(), "instalar");
+            case "--uninstall-autostart-elevated": return ShowElevatedResult(AutostartCli.UninstallElevated(), "desinstalar");
             case "--help":
             case "-h":
             case "/?":
@@ -141,6 +144,28 @@ public static class Program
         }
     }
 
+    private static int ShowElevatedResult(int exitCode, string action)
+    {
+        var title = "VentoryPrint";
+        var doneText = action == "instalar" ? "instalado" : "desinstalado";
+        if (exitCode == 0)
+        {
+            MessageBox.Show(
+                $"Inicio automatico {doneText} correctamente con permisos de administrador.",
+                title, MessageBoxButtons.OK, MessageBoxIcon.Information);
+        }
+        else
+        {
+            MessageBox.Show(
+                $"No se pudo {action} el inicio automatico. " +
+                "Abre una consola (cmd/PowerShell) como administrador y ejecuta:\n\n" +
+                $"  .\\VentoryPrint.exe --{(action == "instalar" ? "install" : "uninstall")}-autostart-elevated\n\n" +
+                "Asi veras el mensaje de error exacto.",
+                title, MessageBoxButtons.OK, MessageBoxIcon.Error);
+        }
+        return exitCode;
+    }
+
     private static void PrintHelp()
     {
         Console.WriteLine("VentoryPrint - Agente local de impresión de ventoryPOS");
@@ -153,8 +178,10 @@ public static class Program
         Console.WriteLine("Utilitarios:");
         Console.WriteLine("  --test-print              Imprime un ticket de prueba");
         Console.WriteLine("  --test-print-shift        Imprime un reporte de cierre de turno de prueba");
-        Console.WriteLine("  --install-autostart       Activa el arranque con Windows");
+        Console.WriteLine("  --install-autostart       Activa el arranque con Windows (solo localhost)");
+        Console.WriteLine("  --install-autostart-elevated  Activa el arranque con admin (host '+')");
         Console.WriteLine("  --uninstall-autostart     Lo desactiva");
+        Console.WriteLine("  --uninstall-autostart-elevated  Desactiva el modo admin");
         Console.WriteLine("  --autostart-status        Estado del autostart");
         Console.WriteLine("  --help                    Esta ayuda");
     }
