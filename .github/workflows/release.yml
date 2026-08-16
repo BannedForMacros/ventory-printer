@@ -1,0 +1,68 @@
+name: Build and Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+
+      - name: Publish self-contained exe
+        run: dotnet publish VentoryPrint.csproj -c Release
+
+      - name: Read version from csproj
+        id: version
+        shell: pwsh
+        run: |
+          [xml]$csproj = Get-Content VentoryPrint.csproj
+          $version = ($csproj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Compute SHA256 and write version.json
+        shell: pwsh
+        run: |
+          $exe = "bin/Release/net8.0-windows/win-x64/publish/VentoryPrint.exe"
+          $hash = (Get-FileHash $exe -Algorithm SHA256).Hash.ToLower()
+          $tag = "${{ github.ref_name }}"
+          $repo = "${{ github.repository }}"
+          $url = "https://github.com/$repo/releases/download/$tag/VentoryPrint.exe"
+          $manifest = [ordered]@{
+            version = "${{ steps.version.outputs.version }}"
+            url     = $url
+            sha256  = $hash
+            notas   = "Version ${{ steps.version.outputs.version }} del agente VentoryPrint."
+          }
+          $manifest | ConvertTo-Json | Set-Content -Path "bin/Release/net8.0-windows/win-x64/publish/version.json" -Encoding utf8
+          Write-Host "URL: $url"
+          Write-Host "SHA256: $hash"
+
+      - name: Upload Release Assets
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            bin/Release/net8.0-windows/win-x64/publish/VentoryPrint.exe
+            bin/Release/net8.0-windows/win-x64/publish/version.json
+          name: "VentoryPrint ${{ steps.version.outputs.version }}"
+          body: |
+            Release del agente VentoryPrint.
+
+            ### Archivos
+            - `VentoryPrint.exe` — ejecutable self-contained para Windows x64.
+            - `version.json` — manifiesto de actualización automática (versión, URL y SHA256).
+
+            ### Enlace directo de descarga
+            https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/VentoryPrint.exe
