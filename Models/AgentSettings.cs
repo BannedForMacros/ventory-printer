@@ -51,9 +51,17 @@ public sealed class AgentSettings
 
     /// <summary>
     /// URL base del servidor del POS (se auto-descubre desde los tickets que llegan).
-    /// El agente le pide aquí /agent/version.json para las actualizaciones.
+    /// El agente le pide aqui /agent/version.json para las actualizaciones.
     /// </summary>
     public string UpdateBaseUrl { get; set; } = "";
+
+    /// <summary>
+    /// URL completa del manifiesto version.json para actualizaciones automaticas.
+    /// Si se configura, tiene prioridad sobre <see cref="UpdateBaseUrl"/>.
+    /// Ejemplo: https://github.com/usuario/repo/releases/latest/download/version.json
+    /// </summary>
+    public string UpdateManifestUrl { get; set; } = "";
+
 
     public int TotalCols => ColName + ColQty + ColPu + ColSub;
 }

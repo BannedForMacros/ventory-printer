@@ -7,9 +7,10 @@ using System.Text.Json.Serialization;
 namespace VentoryPrint.Services;
 
 /// <summary>
-/// Actualización automática del agente. Pregunta a {UpdateBaseUrl}/agent/version.json
-/// (la URL del POS se auto-descubre desde los tickets), y si hay versión más nueva
-/// descarga el nuevo VentoryPrint.exe, verifica su SHA256 y lo aplica reiniciando.
+/// Actualización automática del agente. Pregunta al manifiesto version.json
+/// (la URL se obtiene de <see cref="AgentSettings.UpdateManifestUrl"/> o se resuelve
+/// como {UpdateBaseUrl}/agent/version.json). Si hay versión más nueva descarga
+/// el nuevo VentoryPrint.exe, verifica su SHA256 y lo aplica reiniciando.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class UpdateService
@@ -43,7 +44,7 @@ public sealed class UpdateService
     /// <summary>Devuelve el manifiesto si hay una versión MÁS NUEVA que la actual; si no, null.</summary>
     public async Task<Manifest?> CheckAsync(string currentVersion)
     {
-        var url = BaseUrl + "/agent/version.json";
+        var url = ManifestUrl();
         using var resp = await Http.GetAsync(url);
         if (!resp.IsSuccessStatusCode) return null;
 
@@ -52,6 +53,17 @@ public sealed class UpdateService
         if (m is null || string.IsNullOrWhiteSpace(m.Version)) return null;
 
         return IsNewer(m.Version, currentVersion) ? m : null;
+    }
+
+    /// <summary>
+    /// URL del manifiesto de actualizaciones. Usa <see cref="AgentSettings.UpdateManifestUrl"/>
+    /// si esta configurada; si no, resuelve contra <see cref="BaseUrl"/>.
+    /// </summary>
+    private string ManifestUrl()
+    {
+        var explicitUrl = _settings.Load()?.UpdateManifestUrl?.Trim();
+        if (!string.IsNullOrWhiteSpace(explicitUrl)) return explicitUrl!;
+        return BaseUrl + "/agent/version.json";
     }
 
     /// <summary>Descarga el exe nuevo a %TEMP%, valida SHA256 (si viene) y devuelve la ruta.</summary>
