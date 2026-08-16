@@ -8,15 +8,20 @@ namespace VentoryPrint.Services;
 
 /// <summary>
 /// Actualización automática del agente. Pregunta al manifiesto version.json
-/// (la URL se obtiene de <see cref="AgentSettings.UpdateManifestUrl"/> o se resuelve
-/// como {UpdateBaseUrl}/agent/version.json). Si hay versión más nueva descarga
-/// el nuevo VentoryPrint.exe, verifica su SHA256 y lo aplica reiniciando.
+/// publicado en GitHub Releases. Si hay versión más nueva descarga el nuevo
+/// VentoryPrint.exe, verifica su SHA256 y lo aplica reiniciando.
 /// </summary>
 [SupportedOSPlatform("windows")]
 public sealed class UpdateService
 {
     /// <summary>Fallback mientras el agente aún no ha recibido su primer ticket.</summary>
     public const string DefaultBaseUrl = "https://ventorypos.macsoftperu.com";
+
+    /// <summary>
+    /// URL por defecto del manifiesto de actualizaciones (GitHub Releases, latest).
+    /// </summary>
+    public const string DefaultManifestUrl =
+        "https://github.com/BannedForMacros/ventory-printer/releases/latest/download/version.json";
 
     private static readonly HttpClient Http = new() { Timeout = TimeSpan.FromSeconds(60) };
 
@@ -57,13 +62,12 @@ public sealed class UpdateService
 
     /// <summary>
     /// URL del manifiesto de actualizaciones. Usa <see cref="AgentSettings.UpdateManifestUrl"/>
-    /// si esta configurada; si no, resuelve contra <see cref="BaseUrl"/>.
+    /// si esta configurada explicitamente; si no, usa <see cref="DefaultManifestUrl"/>.
     /// </summary>
     private string ManifestUrl()
     {
         var explicitUrl = _settings.Load()?.UpdateManifestUrl?.Trim();
-        if (!string.IsNullOrWhiteSpace(explicitUrl)) return explicitUrl!;
-        return BaseUrl + "/agent/version.json";
+        return string.IsNullOrWhiteSpace(explicitUrl) ? DefaultManifestUrl : explicitUrl!;
     }
 
     /// <summary>Descarga el exe nuevo a %TEMP%, valida SHA256 (si viene) y devuelve la ruta.</summary>
