@@ -1,24 +1,23 @@
 <#
-  publish-agent.ps1 — Publica una nueva version del agente VentoryPrint.
+  publish-agent.ps1 — Compila el exe del agente y lo deja en public/agent del POS
+  para el instalador manual (Instalar-VentoryPrint.bat) de cajas NUEVAS.
 
-  Que hace, en un solo paso:
-   1) Compila el exe self-contained (dotnet publish -c Release).
-   2) Lo copia a la carpeta public/agent del POS.
-   3) Calcula su SHA256 y (re)escribe version.json con la version del csproj.
-
-  Tras esto, cada caja detecta la nueva version y ofrece actualizar con 1 clic.
+  Las ACTUALIZACIONES ya no pasan por aqui. El flujo es:
+    1) Subir <Version> en VentoryPrint.csproj.
+    2) git tag vX.Y.Z && git push --tags
+    3) GitHub Actions (.github/workflows/release.yml) corre los tests, compila y
+       publica VentoryPrint.exe + version.json en GitHub Releases.
+  Las cajas 1.2.1+ leen ese manifiesto directo; las 1.2.0 y anteriores lo
+  reciben via {POS}/agent/version.json, que es una ruta del POS que redirige a
+  GitHub. Por eso este script YA NO escribe version.json: un archivo estatico
+  con ese nombre taparia la ruta y dejaria a las cajas viejas congeladas.
 
   Uso:
     ./publish-agent.ps1                         # usa la ruta por defecto del POS
     ./publish-agent.ps1 -PosPublic "D:\ruta\public"
-
-  IMPORTANTE: subir al servidor los DOS archivos resultantes:
-    public/agent/VentoryPrint.exe   y   public/agent/version.json
-  (Este script los deja listos en la carpeta public/agent local; el deploy
-   al servidor de cada cliente es tu paso habitual de publicacion.)
 #>
 param(
-    [string]$PosPublic = "C:\MacSoft\ventoryPOS\public"
+    [string]$PosPublic = "F:\MacSoft\ventoryPOS\public"
 )
 
 $ErrorActionPreference = "Stop"
@@ -31,32 +30,24 @@ if ($LASTEXITCODE -ne 0) { throw "dotnet publish fallo (codigo $LASTEXITCODE)." 
 $exe = Join-Path $here "bin\Release\net8.0-windows\win-x64\publish\VentoryPrint.exe"
 if (-not (Test-Path $exe)) { throw "No se encontro el exe publicado: $exe" }
 
-# Version desde el csproj (fuente unica de verdad).
 [xml]$csproj = Get-Content (Join-Path $here "VentoryPrint.csproj")
 $version = ($csproj.Project.PropertyGroup | Where-Object { $_.Version } | Select-Object -First 1).Version
-if (-not $version) { throw "No se pudo leer <Version> del csproj." }
 
 $destDir = Join-Path $PosPublic "agent"
 New-Item -ItemType Directory -Force -Path $destDir | Out-Null
 $destExe = Join-Path $destDir "VentoryPrint.exe"
-
 Copy-Item $exe $destExe -Force
-$hash = (Get-FileHash $destExe -Algorithm SHA256).Hash.ToLower()
 
-$manifest = [ordered]@{
-    version = $version
-    url     = "/agent/VentoryPrint.exe"
-    sha256  = $hash
-    notas   = "Version $version del agente VentoryPrint."
+# Si quedo un version.json viejo, se retira: tapa la ruta /agent/version.json del POS.
+$staleManifest = Join-Path $destDir "version.json"
+if (Test-Path $staleManifest) {
+    Remove-Item $staleManifest -Force
+    Write-Host "    (se elimino un version.json estatico viejo de public/agent)" -ForegroundColor Yellow
 }
-$json = $manifest | ConvertTo-Json
-Set-Content -Path (Join-Path $destDir "version.json") -Value $json -Encoding utf8
 
 Write-Host ""
 Write-Host "==> Listo." -ForegroundColor Green
 Write-Host "    Version : $version"
-Write-Host "    SHA256  : $hash"
 Write-Host "    Exe     : $destExe"
-Write-Host "    Manifest: $(Join-Path $destDir 'version.json')"
 Write-Host ""
-Write-Host "    Ahora sube public/agent/ al servidor. Las cajas se actualizaran solas." -ForegroundColor Yellow
+Write-Host "    Para que las cajas se actualicen: git tag v$version && git push --tags" -ForegroundColor Yellow

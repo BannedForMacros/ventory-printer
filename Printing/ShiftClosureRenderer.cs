@@ -102,11 +102,11 @@ public sealed class ShiftClosureRenderer
         b.Line(new string('-', l.Width));
 
         var turnoDisplay = string.Join(" - ", new[] { t.Nombre, t.Id }.Where(s => !string.IsNullOrWhiteSpace(s)));
-        if (!string.IsNullOrWhiteSpace(turnoDisplay)) b.Line(PadLabel("Turno:", turnoDisplay, l));
-        if (!string.IsNullOrWhiteSpace(t.Cajero))     b.Line(PadLabel("Cajero:", t.Cajero, l));
-        if (!string.IsNullOrWhiteSpace(t.Caja))       b.Line(PadLabel("Caja:", t.Caja, l));
-        if (!string.IsNullOrWhiteSpace(t.FechaCierre))   b.Line(PadLabel("Fecha cierre:", t.FechaCierre, l));
-        if (!string.IsNullOrWhiteSpace(t.FechaApertura)) b.Line(PadLabel("Apertura:", t.FechaApertura, l));
+        if (!string.IsNullOrWhiteSpace(turnoDisplay)) b.Line(PadLabel("Turno:", turnoDisplay, l.Width));
+        if (!string.IsNullOrWhiteSpace(t.Cajero))     b.Line(PadLabel("Cajero:", t.Cajero, l.Width));
+        if (!string.IsNullOrWhiteSpace(t.Caja))       b.Line(PadLabel("Caja:", t.Caja, l.Width));
+        if (!string.IsNullOrWhiteSpace(t.FechaCierre))   b.Line(PadLabel("Fecha cierre:", t.FechaCierre, l.Width));
+        if (!string.IsNullOrWhiteSpace(t.FechaApertura)) b.Line(PadLabel("Apertura:", t.FechaApertura, l.Width));
     }
 
     private static void RenderResumen(EscPosBuilder b, ShiftClosurePayload d, Layout l)
@@ -122,7 +122,7 @@ public sealed class ShiftClosureRenderer
         b.Line(new string('-', l.Width));
 
         if (r.NumeroVentas is > 0)
-            b.Line(PadLabel("# Ventas:", r.NumeroVentas.Value.ToString("N0", Inv), l));
+            b.Line(PadLabel("# Ventas:", r.NumeroVentas.Value.ToString("N0", Inv), l.Width));
 
         var mostrarIgv = d.Negocio?.MostrarIgv ?? false;
 
@@ -232,9 +232,16 @@ public sealed class ShiftClosureRenderer
         return label.PadRight(width - amount.Length) + amount;
     }
 
-    private static string PadLabel(string label, string value, Layout l)
+    /// <summary>
+    /// Misma regla que TicketRenderer.PadLabel: el valor no se rellena a la
+    /// derecha, si no la línea mide width+1 y la impresora parte un renglón extra.
+    /// </summary>
+    internal static string PadLabel(string label, string value, int width)
     {
-        if (label.Length + 1 + value.Length >= l.Width) return label + " " + value;
-        return label.PadRight(l.Label) + " " + value.PadRight(l.Value);
+        if (label.Length + 1 + value.Length >= width) return label + " " + value;
+        // Columna de etiqueta fija, acortada lo justo si el valor es largo.
+        var labelWidth = Math.Min(20, (int)(width * 0.55));
+        labelWidth = Math.Max(label.Length, Math.Min(labelWidth, width - 1 - value.Length));
+        return label.PadRight(labelWidth) + " " + value;
     }
 }

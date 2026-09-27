@@ -246,12 +246,20 @@ public sealed class TicketRenderer
         return label.PadRight(width - amount.Length) + amount;
     }
 
-    private static string PadLabel(string label, string value, int width)
+    /// <summary>
+    /// "Fecha:      27/09/2026". El valor NO se rellena a la derecha: antes se
+    /// rellenaba hasta width-labelWidth y, con el espacio separador, la línea
+    /// quedaba en width+1 caracteres; ese carácter sobrante pasaba al siguiente
+    /// renglón y dejaba una línea en blanco debajo de Fecha, Cajero y Caja.
+    /// </summary>
+    internal static string PadLabel(string label, string value, int width)
     {
-        var labelWidth = Math.Min(20, (int)(width * 0.55));
-        var valueWidth = width - labelWidth;
         if (label.Length + 1 + value.Length >= width) return label + " " + value;
-        return label.PadRight(labelWidth) + " " + value.PadRight(valueWidth);
+        // Columna de etiqueta fija (20 en 80mm, 17 en 58mm), pero si el valor es
+        // largo se acorta lo justo para que la línea completa quepa en el papel.
+        var labelWidth = Math.Min(20, (int)(width * 0.55));
+        labelWidth = Math.Max(label.Length, Math.Min(labelWidth, width - 1 - value.Length));
+        return label.PadRight(labelWidth) + " " + value;
     }
 
     /// <summary>

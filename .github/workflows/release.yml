@@ -21,6 +21,9 @@ jobs:
         with:
           dotnet-version: '8.0.x'
 
+      - name: Run tests
+        run: dotnet test Tests/VentoryPrint.Tests/VentoryPrint.Tests.csproj -c Release
+
       - name: Publish self-contained exe
         run: dotnet publish VentoryPrint.csproj -c Release
 

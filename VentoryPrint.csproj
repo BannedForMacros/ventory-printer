@@ -5,13 +5,20 @@
     <TargetFramework>net8.0-windows</TargetFramework>
     <RootNamespace>VentoryPrint</RootNamespace>
     <AssemblyName>VentoryPrint</AssemblyName>
-    <Version>1.2.2</Version>
+    <Version>1.2.3</Version>
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <LangVersion>latest</LangVersion>
     <ApplicationManifest>app.manifest</ApplicationManifest>
     <UseWindowsForms>true</UseWindowsForms>
   </PropertyGroup>
+
+  <!-- Los tests viven en Tests/ y son otro proyecto: que el glob del exe no los compile. -->
+  <ItemGroup>
+    <Compile Remove="Tests/**" />
+    <None Remove="Tests/**" />
+    <InternalsVisibleTo Include="VentoryPrint.Tests" />
+  </ItemGroup>
 
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|AnyCPU'">
     <PublishSingleFile>true</PublishSingleFile>
