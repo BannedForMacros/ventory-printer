@@ -21,7 +21,19 @@ namespace VentoryPrint.Hosting;
 [SupportedOSPlatform("windows")]
 public sealed class PrintServer : BackgroundService
 {
-    public const string Version = "1.2.0";
+    /// <summary>
+    /// Versión del agente, leída del ensamblado (la fuente es &lt;Version&gt; en el
+    /// csproj). Antes era una constante escrita a mano que se quedó en "1.2.0"
+    /// tras varios releases: el buscador de actualizaciones comparaba contra
+    /// ella y ofrecía la misma versión una y otra vez aunque ya estuviera instalada.
+    /// </summary>
+    public static readonly string Version = LeerVersionDelEnsamblado();
+
+    private static string LeerVersionDelEnsamblado()
+    {
+        var v = typeof(PrintServer).Assembly.GetName().Version;
+        return v is null ? "0.0.0" : $"{v.Major}.{v.Minor}.{v.Build}";
+    }
 
     private static readonly JsonSerializerOptions JsonIn = new()
     {

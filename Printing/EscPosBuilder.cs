@@ -46,9 +46,38 @@ public sealed class EscPosBuilder
 
     public EscPosBuilder Text(string s)
     {
-        var bytes = _enc.GetBytes(s);
+        var bytes = _enc.GetBytes(Sanear(s));
         _buf.Write(bytes, 0, bytes.Length);
         return this;
+    }
+
+    /// <summary>
+    /// Sustituye los caracteres que la mayoría de ticketeras no tiene en su tabla
+    /// por defecto (CP437). Las vocales acentuadas MAYÚSCULAS no existen ahí:
+    /// "ELECTRÓNICA" salía como "ELECTRaNICA". Las minúsculas (á, é, ñ, ¿, ¡)
+    /// sí existen y se conservan. También normaliza rayas y comillas tipográficas.
+    /// </summary>
+    private static readonly Dictionary<char, string> Reemplazos = new()
+    {
+        ['Á'] = "A", ['É'] = "E", ['Í'] = "I", ['Ó'] = "O", ['Ú'] = "U", ['Ü'] = "U",
+        ['À'] = "A", ['È'] = "E", ['Ì'] = "I", ['Ò'] = "O", ['Ù'] = "U",
+        ['Â'] = "A", ['Ê'] = "E", ['Î'] = "I", ['Ô'] = "O", ['Û'] = "U",
+        ['—'] = "-", ['–'] = "-", ['‒'] = "-", ['−'] = "-",
+        ['“'] = "\"", ['”'] = "\"", ['„'] = "\"", ['‘'] = "'", ['’'] = "'",
+        ['•'] = "-", ['…'] = "...", ['€'] = "EUR", [' '] = " ",
+    };
+
+    internal static string Sanear(string s)
+    {
+        if (string.IsNullOrEmpty(s)) return s;
+        StringBuilder? sb = null;
+        for (var i = 0; i < s.Length; i++)
+        {
+            if (!Reemplazos.TryGetValue(s[i], out var rep)) { sb?.Append(s[i]); continue; }
+            sb ??= new StringBuilder(s, 0, i, s.Length + 8);
+            sb.Append(rep);
+        }
+        return sb?.ToString() ?? s;
     }
 
     public EscPosBuilder Line(string s) => Text(s + "\n");

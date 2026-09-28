@@ -79,6 +79,11 @@ public sealed class DocumentoInfo
     [JsonPropertyName("vendedor")] public string? Vendedor { get; set; }
     [JsonPropertyName("caja")]     public string? Caja { get; set; }
 
+    /// <summary>Comprobante electrónico SUNAT (boleta/factura emitida): usa el
+    /// diseño de comprobante (cantidad x precio en su línea, Op. Gravada/IGV/Total,
+    /// importe en letras). Lo manda el POS; si falta, se infiere del tipo.</summary>
+    [JsonPropertyName("electronico")] public bool Electronico { get; set; }
+
     /// <summary>Líneas adicionales ya formateadas por el POS; se imprimen tal cual
     /// al final de la sección. Permite agregar datos sin recompilar el agente.</summary>
     [JsonPropertyName("extra")]    public List<string>? Extra { get; set; }
@@ -112,6 +117,15 @@ public sealed class TotalesInfo
     [JsonPropertyName("descuento")] public decimal? Descuento { get; set; }
     [JsonPropertyName("total")]     public decimal Total { get; set; }
     [JsonPropertyName("moneda")]    public string? Moneda { get; set; }
+
+    // Desglose SUNAT; solo viaja con comprobante electrónico (POS 2026-09-27+).
+    [JsonPropertyName("gravada")]   public decimal? Gravada { get; set; }
+    [JsonPropertyName("exonerada")] public decimal? Exonerada { get; set; }
+    [JsonPropertyName("inafecta")]  public decimal? Inafecta { get; set; }
+    /// <summary>Tasa de IGV en % (18). Para rotular "IGV (18%)".</summary>
+    [JsonPropertyName("igvTasa")]   public decimal? IgvTasa { get; set; }
+    /// <summary>"SON: DOS MIL NOVECIENTOS CON 00/100 SOLES".</summary>
+    [JsonPropertyName("enLetras")]  public string? EnLetras { get; set; }
 }
 
 public sealed class PagoInfo
