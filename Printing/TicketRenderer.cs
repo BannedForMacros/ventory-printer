@@ -255,44 +255,58 @@ public sealed class TicketRenderer
 
     // ------------------------------------------------ comprobante electrónico
 
+    /// <summary>
+    /// Ítems del comprobante, como en una factura: la descripción en su línea y
+    /// debajo los números bajo sus títulos, así "1" y "2900.00" nunca se leen juntos.
+    /// <code>
+    /// Descripcion
+    ///    Cant. Unid.          P.Unit.        Importe
+    /// ------------------------------------------------
+    /// SERVICIO DE DESARROLLO DE SOFTWARE
+    ///     1.00 Servicio       2,900.00       2,900.00
+    /// </code>
+    /// </summary>
     private static void RenderItemsCpe(EscPosBuilder b, TicketPayload d, Layout l)
     {
         b.JustifyLeft();
         b.Line(new string('-', l.Width));
-        b.Line(PadAmount("Descripcion", "Importe", l.Width));
+        b.Line("Descripcion");
+        b.Line(FilaItemCpe("Cant.", "Unid.", "P.Unit.", "Importe", l.Width));
         b.Line(new string('-', l.Width));
 
         foreach (var it in d.Items)
         {
-            foreach (var ln in WordWrap(it.Desc, l.Width)) b.Line(ln);
-            foreach (var ln in LineasDetalleCpe(it, l.Width)) b.Line(ln);
+            var unidad = (it.Unidad ?? "").Trim();
+            // En 58mm no hay columna de unidad: va junto a la descripción.
+            var desc = l.Width < 40 && unidad.Length > 0 ? $"{it.Desc} x {unidad}" : it.Desc;
+            foreach (var ln in WordWrap(desc, l.Width)) b.Line(ln);
+            b.Line(FilaItemCpe(it.Cant.ToString("0.00", Inv), unidad, MoneyMiles(it.Precio), MoneyMiles(it.Importe), l.Width));
         }
 
         b.Line(new string('-', l.Width));
     }
 
-    /// <summary>"  1.00 Servicio x 2,900.00" — cantidad, unidad y precio en su propia línea.</summary>
-    internal static string DetalleItemCpe(TicketItem it, bool conUnidad = true)
-    {
-        var unidad = !conUnidad || string.IsNullOrWhiteSpace(it.Unidad) ? "" : " " + it.Unidad.Trim();
-        return $"  {it.Cant.ToString("0.00", Inv)}{unidad} x {MoneyMiles(it.Precio)}";
-    }
-
     /// <summary>
-    /// Detalle + importe a la derecha en una sola línea. Si no cabe (58mm con
-    /// precio grande), primero se sacrifica la unidad; si aun así no cabe, el
-    /// importe baja a su propia línea antes que dejar que la impresora parta la fila.
+    /// Fila numérica del comprobante. 80mm: Cant.(8) Unid.(9) P.Unit.(12) Importe(resto).
+    /// 58mm: Cant.(7) P.Unit.(11) Importe(resto), sin unidad. Si un número desborda su
+    /// columna, la fila cae a "detalle ... importe" antes que partirse en el papel.
     /// </summary>
-    internal static List<string> LineasDetalleCpe(TicketItem it, int width)
+    internal static string FilaItemCpe(string cant, string unidad, string pu, string importe, int width)
     {
-        var importe = MoneyMiles(it.Importe);
-        foreach (var conUnidad in new[] { true, false })
+        string fila;
+        if (width >= 40)
         {
-            var detalle = DetalleItemCpe(it, conUnidad);
-            if (detalle.Length + 1 + importe.Length <= width)
-                return new List<string> { PadAmount(detalle, importe, width) };
+            var u = unidad.Length > 9 ? unidad[..9] : unidad;
+            fila = cant.PadLeft(8) + " " + u.PadRight(9) + pu.PadLeft(12) + importe.PadLeft(width - 30);
         }
-        return new List<string> { DetalleItemCpe(it, false), importe.PadLeft(width) };
+        else
+        {
+            fila = cant.PadLeft(7) + pu.PadLeft(11) + importe.PadLeft(width - 18);
+        }
+        if (fila.Length <= width) return fila;
+
+        var detalle = "  " + cant + (unidad.Length > 0 && width >= 40 ? " " + unidad : "") + " x " + pu;
+        return PadAmount(detalle, importe, width);
     }
 
     private static void RenderTotalesCpe(EscPosBuilder b, TicketPayload d, Layout l)

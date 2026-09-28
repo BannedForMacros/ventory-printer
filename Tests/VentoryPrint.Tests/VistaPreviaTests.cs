@@ -27,7 +27,7 @@ public class VistaPreviaTests
         },
         Totales = new TotalesInfo { Subtotal = 2984m, Igv = 455.19m, Descuento = 0, Total = 2984m, Moneda = "PEN", Gravada = 2528.81m, Exonerada = 0, Inafecta = 0, IgvTasa = 18, EnLetras = "SON: DOS MIL NOVECIENTOS OCHENTA Y CUATRO CON 00/100 SOLES" },
         Pago = new PagoInfo { Metodo = "Transferencia" },
-        Pie = "Representación impresa de la Factura Electrónica\nConsulte en www.sunat.gob.pe\nRef. interna: V-0006\nGracias por su preferencia",
+        Pie = "Representación impresa de la Factura Electrónica\nConsulte en www.sunat.gob.pe\nGracias por su preferencia",
     };
 
     private static TicketPayload NotaDeVenta()
@@ -51,8 +51,9 @@ public class VistaPreviaTests
         Assert.Contains("FACTURA ELECTRONICA", lineas);                              // sin tilde rota
         Assert.Contains(lineas, ln => ln.StartsWith(ancho >= 40 ? "Fecha de emision:" : "Emision:"));
         Assert.Contains(lineas, ln => ln.StartsWith("RUC:        20605105514") || ln.StartsWith("RUC:       20605105514"));
-        Assert.Contains(lineas, ln => ln.Contains("1.00 Servicio x 2,900.00") || ln.Contains("1.00 x 2,900.00"));
-        Assert.Contains(lineas, ln => ln.EndsWith(" 2,900.00"));
+        Assert.Contains(lineas, ln => ln.TrimStart().StartsWith("Cant.") && ln.Contains("P.Unit.") && ln.EndsWith("Importe"));
+        Assert.Contains(lineas, ln => ln.TrimStart().StartsWith("1.00") && ln.Contains(" 2,900.00") && ln.EndsWith(" 2,900.00"));
+        Assert.DoesNotContain(lineas, ln => ln.Contains("Ref. interna"));
         Assert.Contains(lineas, ln => ln.EndsWith("Op. Gravada: S/  2,528.81"));
         Assert.Contains(lineas, ln => ln.EndsWith("IGV (18%): S/    455.19"));
         Assert.Contains(lineas, ln => ln.EndsWith("TOTAL: S/  2,984.00"));

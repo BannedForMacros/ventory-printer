@@ -43,10 +43,26 @@ public class FormatoTicketTests
     }
 
     [Fact]
-    public void Comprobante_pone_cantidad_por_precio_en_su_propia_linea()
+    public void Comprobante_alinea_cantidad_precio_e_importe_bajo_sus_titulos()
     {
-        var item = new TicketItem { Cant = 1, Desc = "SERVICIO DE DESARROLLO", Precio = 2900m, Importe = 2900m, Unidad = "Servicio" };
-        Assert.Equal("  1.00 Servicio x 2,900.00", TicketRenderer.DetalleItemCpe(item));
+        var cab  = TicketRenderer.FilaItemCpe("Cant.", "Unid.", "P.Unit.", "Importe", 48);
+        var fila = TicketRenderer.FilaItemCpe("1.00", "Servicio", "2,900.00", "2,900.00", 48);
+
+        Assert.Equal(48, cab.Length);
+        Assert.Equal(48, fila.Length);
+        Assert.Equal("   Cant. Unid.         P.Unit.           Importe", cab);
+        Assert.Equal("    1.00 Servicio     2,900.00          2,900.00", fila);
+        // Cada valor termina en la misma columna que su título.
+        Assert.Equal(cab.IndexOf("Cant.") + 5, fila.IndexOf("1.00") + 4);
+        Assert.Equal(cab.IndexOf("P.Unit.") + 7, fila.IndexOf("2,900.00") + 8);
+    }
+
+    [Fact]
+    public void Comprobante_en_58mm_omite_la_unidad_y_cabe()
+    {
+        var fila = TicketRenderer.FilaItemCpe("12.00", "UNID", "7.00", "84.00", 32);
+        Assert.Equal(32, fila.Length);
+        Assert.Equal("  12.00       7.00         84.00", fila);
     }
 
     [Fact]
