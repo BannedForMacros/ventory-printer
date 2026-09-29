@@ -60,6 +60,14 @@ public sealed class TicketRenderer
         // sin esperar a que salga el papel.
         if (abrirCajon) b.Pulse();
 
+        // Ticket por plantilla: el diseño lo decide el POS, bloque por bloque.
+        if (data.Bloques is { Count: > 0 })
+        {
+            BloqueRenderer.Render(b, data, layout.Width);
+            b.FullCut();
+            return b.ToArray();
+        }
+
         RenderHeader(b, data, layout, cpe);
         RenderDocumento(b, data, layout, cpe);
         RenderCliente(b, data, layout, cpe);

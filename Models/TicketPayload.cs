@@ -32,6 +32,15 @@ public sealed class TicketPayload
     [JsonPropertyName("pie")]
     public string? Pie { get; set; }
 
+    /// <summary>
+    /// Ticket por plantilla: si viene, el agente dibuja SOLO estos bloques, en
+    /// orden, y no usa negocio/documento/cliente/items/totales/pago/pie/qr. El
+    /// POS sigue mandando esos campos para los agentes anteriores a 1.3.0, que
+    /// ignoran esta clave e imprimen el diseño de siempre.
+    /// </summary>
+    [JsonPropertyName("bloques")]
+    public List<Bloque>? Bloques { get; set; }
+
     [JsonPropertyName("qr")]
     public string? Qr { get; set; }
 

@@ -35,11 +35,7 @@ public sealed class PrintServer : BackgroundService
         return v is null ? "0.0.0" : $"{v.Major}.{v.Minor}.{v.Build}";
     }
 
-    private static readonly JsonSerializerOptions JsonIn = new()
-    {
-        PropertyNameCaseInsensitive = true,
-        NumberHandling = System.Text.Json.Serialization.JsonNumberHandling.AllowReadingFromString,
-    };
+    private static readonly JsonSerializerOptions JsonIn = TicketJson.Options;
 
     private readonly SettingsService _settings;
     private readonly TicketRenderer _ticketRenderer;
@@ -223,6 +219,9 @@ public sealed class PrintServer : BackgroundService
             caja = s?.CajaNombre ?? "",
             requiereToken = tokens.Count > 0,
             tokensConfigurados = tokens.Count,
+            // Ticket por plantilla: qué versión del contrato y qué bloques entiende este agente.
+            bloques = BloqueRenderer.Version,
+            tiposBloque = BloqueRenderer.Tipos,
         });
         await WriteJsonAsync(res, 200, body);
     }
@@ -250,7 +249,7 @@ public sealed class PrintServer : BackgroundService
             return;
         }
 
-        if (ticket is null || ticket.Items.Count == 0)
+        if (ticket is null || (ticket.Items.Count == 0 && ticket.Bloques is not { Count: > 0 }))
         {
             await WriteJsonAsync(res, 400, "{\"ok\":false,\"error\":\"Ticket vacio\"}");
             return;

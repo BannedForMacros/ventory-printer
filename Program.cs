@@ -23,7 +23,7 @@ public static class Program
         Encoding.RegisterProvider(CodePagesEncodingProvider.Instance);
 
         var mode = args.FirstOrDefault();
-        if (mode is "--service" or "--test-print" or "--test-print-shift"
+        if (mode is "--service" or "--test-print" or "--test-print-shift" or "--test-print-bloques"
             or "--install-autostart" or "--uninstall-autostart" or "--autostart-status"
             or "--install-autostart-elevated" or "--uninstall-autostart-elevated"
             or "--help" or "-h" or "/?")
@@ -39,6 +39,7 @@ public static class Program
             case "--service":              return RunHeadlessAsync().GetAwaiter().GetResult();
             case "--test-print":           return TestPrintCli.Run();
             case "--test-print-shift":     return TestShiftClosureCli.Run();
+            case "--test-print-bloques":   return TestBloquesCli.Run(args.Skip(1).FirstOrDefault());
             case "--install-autostart":    return AutostartCli.Install();
             case "--uninstall-autostart":  return AutostartCli.Uninstall();
             case "--autostart-status":     return AutostartCli.Status();
@@ -178,6 +179,7 @@ public static class Program
         Console.WriteLine("Utilitarios:");
         Console.WriteLine("  --test-print              Imprime un ticket de prueba");
         Console.WriteLine("  --test-print-shift        Imprime un reporte de cierre de turno de prueba");
+        Console.WriteLine("  --test-print-bloques [json]  Imprime un ticket por bloques (muestra, o el JSON indicado)");
         Console.WriteLine("  --install-autostart       Activa el arranque con Windows (solo localhost)");
         Console.WriteLine("  --install-autostart-elevated  Activa el arranque con admin (host '+')");
         Console.WriteLine("  --uninstall-autostart     Lo desactiva");

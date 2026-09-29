@@ -44,6 +44,13 @@ public sealed class EscPosBuilder
         return this;
     }
 
+    /// <summary>Blanco sobre negro (GS B). La ticketera que no lo soporta imprime normal.</summary>
+    public EscPosBuilder Reverse(bool on)
+    {
+        Write(GS, (byte)'B', (byte)(on ? 1 : 0));
+        return this;
+    }
+
     public EscPosBuilder Text(string s)
     {
         var bytes = _enc.GetBytes(Sanear(s));
